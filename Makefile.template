@@ -1,0 +1,649 @@
+# Makefile Template for Professional ASIC Design Projects
+# Multi-PDK OpenLane RTL-to-GDSII flow with simulation support
+
+PROJECT = PROJECT_NAME_PLACEHOLDER
+TOP_MODULE = TOP_MODULE_PLACEHOLDER
+TESTBENCH = TESTBENCH_PLACEHOLDER
+
+# Directories
+RTL_DIR = sources/rtl
+TB_DIR = sources/tb
+SIM_DIR = sim
+WAVE_DIR = $(SIM_DIR)/waves
+LOG_DIR = $(SIM_DIR)/logs
+CONFIG_DIR = config
+RUNS_DIR = runs
+LAYOUT_DIR = layout
+REPORTS_DIR = reports
+DESIGNS_DIR = designs
+FILELIST = sources/rtl_list.f
+
+# OpenLane Configuration
+OPENLANE_ROOT ?= $(HOME)/asic_workspace/OpenLane
+DESIGN_DIR = $(DESIGNS_DIR)/$(TOP_MODULE)
+
+# PDK Configuration
+SKY130_CONFIG = $(CONFIG_DIR)/sky130.json
+GF180_CONFIG = $(CONFIG_DIR)/gf180.json
+
+# Tools - auto-detect available tools
+IVERILOG := $(shell command -v iverilog 2> /dev/null)
+VVP := $(shell command -v vvp 2> /dev/null)
+GTKWAVE := $(shell command -v gtkwave 2> /dev/null)
+DOCKER := $(shell command -v docker 2> /dev/null)
+KLAYOUT := $(shell command -v klayout 2> /dev/null)
+MAGIC := $(shell command -v magic 2> /dev/null)
+PYTHON := $(shell command -v python3 2> /dev/null)
+
+# Simulation files
+SIM_TOP = $(SIM_DIR)/$(PROJECT)_sim
+WAVE_FILE = $(WAVE_DIR)/$(TOP_MODULE)_waves.vcd
+FST_FILE = $(WAVE_DIR)/$(TOP_MODULE)_waves.fst
+
+# Default target
+.PHONY: help
+help:
+	@echo "=== $(PROJECT) Professional ASIC Build System ==="
+	@echo ""
+	@echo "🎯 Quick Start:"
+	@echo "  make check-all           - Verify all tools and setup"
+	@echo "  make sim-waves           - Run simulation and view waveforms"
+	@echo "  make asic-flow-sky130    - Complete SkyWater 130nm ASIC flow"
+	@echo "  make asic-flow-gf180     - Complete GlobalFoundries 180nm flow"
+	@echo "  make compare-pdks        - Compare results between PDKs"
+	@echo ""
+	@echo "🔧 Setup and Configuration:"
+	@echo "  check-tools              - Check simulation tools"
+	@echo "  check-openlane           - Verify OpenLane installation"
+	@echo "  update-config            - Update configs from rtl_list.f"
+	@echo "  verify-config            - Verify configuration files"
+	@echo ""
+	@echo "🏃 Simulation:"
+	@echo "  sim                      - Run Icarus Verilog simulation"
+	@echo "  waves                    - View waveforms with GTKWave"
+	@echo "  sim-waves                - Run simulation and open waveforms"
+	@echo ""
+	@echo "🏭 ASIC Flow (SkyWater 130nm):"
+	@echo "  asic-flow-sky130         - Complete flow"
+	@echo ""
+	@echo "🏭 ASIC Flow (GlobalFoundries 180nm):"
+	@echo "  asic-flow-gf180          - Complete flow"
+	@echo ""
+	@echo "📊 Analysis:"
+	@echo "  timing-sky130            - Timing analysis (SkyWater)"
+	@echo "  timing-gf180             - Timing analysis (GlobalFoundries)"
+	@echo "  area-report              - Area utilization report"
+	@echo "  power-report             - Power analysis report"
+	@echo "  compare-pdks             - Compare PDK implementations"
+	@echo ""
+	@echo "👁️ Layout Viewing:"
+	@echo "  view-gds-sky130          - View SkyWater GDSII in KLayout"
+	@echo "  view-gds-gf180           - View GlobalFoundries GDSII in KLayout"
+	@echo "  view-magic               - Open layout in Magic"
+	@echo ""
+	@echo "🧹 Cleanup:"
+	@echo "  clean                    - Clean simulation files"
+	@echo "  clean-runs               - Clean OpenLane runs"
+	@echo "  clean-all                - Clean everything"
+	@echo ""
+	@echo "📈 Status:"
+	@echo "  status                   - Show project status"
+	@echo "  list-runs                - List all OpenLane runs"
+	@echo ""
+	@echo "Current configuration:"
+	@echo "  Project: $(PROJECT)"
+	@echo "  Top module: $(TOP_MODULE)"
+	@echo "  Testbench: $(TESTBENCH)"
+	@echo "  OpenLane: $(OPENLANE_ROOT)"
+
+# ================================================
+# SETUP AND VERIFICATION
+# ================================================
+
+.PHONY: check-all
+check-all: check-tools check-openlane verify-config
+	@echo "✅ All checks passed! Ready for ASIC development."
+
+.PHONY: check-tools
+check-tools:
+	@echo "=== Tool Availability Check ==="
+	@echo
+ifndef IVERILOG
+	@echo "❌ Icarus Verilog not found - install with: sudo apt install iverilog"
+	@exit 1
+else
+	@echo "✅ Icarus Verilog: $(IVERILOG)"
+endif
+ifndef GTKWAVE
+	@echo "❌ GTKWave not found - install with: sudo apt install gtkwave"
+	@exit 1
+else
+	@echo "✅ GTKWave: $(GTKWAVE)"
+endif
+ifndef DOCKER
+	@echo "❌ Docker not found - required for OpenLane"
+	@exit 1
+else
+	@echo "✅ Docker: $(DOCKER)"
+endif
+ifndef PYTHON
+	@echo "❌ Python3 not found - required for config management"
+	@exit 1
+else
+	@echo "✅ Python3: $(PYTHON)"
+endif
+ifdef KLAYOUT
+	@echo "✅ KLayout: $(KLAYOUT)"
+else
+	@echo "⚠️  KLayout not found - GDSII viewing limited"
+endif
+ifdef MAGIC
+	@echo "✅ Magic: $(MAGIC)"
+else
+	@echo "⚠️  Magic not found - layout editing limited"
+endif
+	@echo "✅ Tool check complete!"
+
+.PHONY: check-openlane
+check-openlane:
+	@echo "=== OpenLane Installation Check ==="
+	@echo
+	@if [ ! -d "$(OPENLANE_ROOT)" ]; then \
+		echo "❌ OpenLane not found at $(OPENLANE_ROOT)"; \
+		echo "   Run install_asic_tools.sh first"; \
+		exit 1; \
+	fi
+	@echo "✅ OpenLane found at $(OPENLANE_ROOT)"
+	@if command -v docker &> /dev/null && docker images | grep -q openlane; then \
+		echo "✅ OpenLane Docker images found"; \
+	else \
+		echo "❌ OpenLane Docker images not found"; \
+		echo "   Run: cd $(OPENLANE_ROOT) && make pull-openlane"; \
+		exit 1; \
+	fi
+	@if [ -d "$(OPENLANE_ROOT)/../pdks/sky130A" ]; then \
+		echo "✅ SkyWater 130nm PDK found"; \
+	else \
+		echo "❌ SkyWater 130nm PDK not found"; \
+		echo "   Run: cd $(OPENLANE_ROOT) && make pdk"; \
+		exit 1; \
+	fi
+	@if [ -d "$(OPENLANE_ROOT)/../pdks/gf180mcuA" ]; then \
+		echo "✅ GlobalFoundries 180nm PDK found"; \
+	else \
+		echo "⚠️  GlobalFoundries 180nm PDK not found (optional)"; \
+	fi
+	@echo "✅ OpenLane installation verified!"
+
+.PHONY: verify-config
+verify-config:
+	@echo "=== Configuration Verification ==="
+	@echo
+	@if [ -f "$(SKY130_CONFIG)" ]; then \
+		echo "✅ SkyWater config: $(SKY130_CONFIG)"; \
+	else \
+		echo "❌ SkyWater config missing: $(SKY130_CONFIG)"; \
+		exit 1; \
+	fi
+	@if [ -f "$(GF180_CONFIG)" ]; then \
+		echo "✅ GlobalFoundries config: $(GF180_CONFIG)"; \
+	else \
+		echo "⚠️  GlobalFoundries config missing: $(GF180_CONFIG)"; \
+	fi
+	@if [ -f "$(FILELIST)" ]; then \
+		echo "✅ RTL file list: $(FILELIST)"; \
+		@echo "   Files listed: $$(grep -c '^/' $(FILELIST) 2>/dev/null || echo 0)"; \
+	else \
+		echo "❌ RTL file list missing: $(FILELIST)"; \
+		echo "   Run project initialization script"; \
+		exit 1; \
+	fi
+	@echo "✅ Configuration verification complete!"
+
+# ================================================
+# CONFIGURATION MANAGEMENT
+# ================================================
+
+.PHONY: update-config
+update-config: $(FILELIST)
+	@echo "=== Updating Configurations from $(FILELIST) ==="
+	@echo
+	@if [ ! -s "$(FILELIST)" ]; then \
+		echo "❌ File list is empty: $(FILELIST)"; \
+		echo "   Add RTL files to $(RTL_DIR)/ and update the list"; \
+		exit 1; \
+	fi
+	@echo "📝 Extracting RTL files from $(FILELIST)..."
+	@$(PYTHON) -c " \
+import json, sys, os; \
+rtl_files = []; \
+try: \
+    with open('$(FILELIST)', 'r') as f: \
+        for line in f: \
+            line = line.strip(); \
+            if line and not line.startswith('#') and not line.startswith('+') and '$(TB_DIR)' not in line: \
+                if line.startswith('/'): \
+                    rtl_files.append(line.replace('$(PWD)/', '')); \
+                else: \
+                    rtl_files.append(line); \
+    print(f'Found {len(rtl_files)} RTL files'); \
+    for f in rtl_files: print(f'  {f}'); \
+    print(); \
+    if len(rtl_files) == 0: \
+        print('❌ No RTL files found in $(FILELIST)'); \
+        sys.exit(1); \
+    configs = [('$(SKY130_CONFIG)', 'SkyWater 130nm'), ('$(GF180_CONFIG)', 'GlobalFoundries 180nm')]; \
+    for config_file, pdk_name in configs: \
+        if os.path.exists(config_file): \
+            with open(config_file, 'r') as f: \
+                config = json.load(f); \
+            config['VERILOG_FILES'] = rtl_files; \
+            with open(config_file, 'w') as f: \
+                json.dump(config, f, indent=4); \
+            print(f'✅ Updated {pdk_name}: {config_file}'); \
+        else: \
+            print(f'⚠️  Skipped {pdk_name}: {config_file} not found'); \
+    print('✅ Configuration update complete!'); \
+except Exception as e: \
+    print(f'❌ Error updating configs: {e}'); \
+    sys.exit(1); \
+"
+	@echo
+	@echo "🔍 Please verify the updated configurations:"
+	@echo "   make verify-config"
+	@echo
+	@echo "📋 To see what files were added:"
+	@echo "   make status"
+
+.PHONY: show-config
+show-config:
+	@echo "=== Current Configuration Status ==="
+	@echo
+	@echo "📁 RTL Files (from $(FILELIST)):"
+	@grep "^/" $(FILELIST) 2>/dev/null | grep -v "$(TB_DIR)" | sed 's|$(PWD)/||' | sed 's/^/  /' || echo "  No RTL files found"
+	@echo
+	@echo "📁 Testbench Files (from $(FILELIST)):"
+	@grep "^/" $(FILELIST) 2>/dev/null | grep "$(TB_DIR)" | sed 's|$(PWD)/||' | sed 's/^/  /' || echo "  No testbench files found"
+	@echo
+	@echo "⚙️  SkyWater 130nm Config:"
+	@if [ -f "$(SKY130_CONFIG)" ]; then \
+		$(PYTHON) -c "import json; config=json.load(open('$(SKY130_CONFIG)')); print(f\"  Files: {len(config.get('VERILOG_FILES', []))}\"); [print(f'    {f}') for f in config.get('VERILOG_FILES', [])]"; \
+	else \
+		echo "  Config file not found"; \
+	fi
+	@echo
+	@echo "⚙️  GlobalFoundries 180nm Config:"
+	@if [ -f "$(GF180_CONFIG)" ]; then \
+		$(PYTHON) -c "import json; config=json.load(open('$(GF180_CONFIG)')); print(f\"  Files: {len(config.get('VERILOG_FILES', []))}\"); [print(f'    {f}') for f in config.get('VERILOG_FILES', [])]"; \
+	else \
+		echo "  Config file not found"; \
+	fi
+
+# ================================================
+# SIMULATION
+# ================================================
+
+.PHONY: sim
+sim: $(SIM_TOP)
+	@echo "🏃 Running simulation..."
+	@mkdir -p $(LOG_DIR)
+	@$(VVP) $(SIM_TOP) | tee $(LOG_DIR)/simulation.log
+	@echo "✅ Simulation complete!"
+	@echo "📋 Log file: $(LOG_DIR)/simulation.log"
+	@echo "🌊 Waveform: $(WAVE_FILE)"
+	@echo "👁️  View waves: make waves"
+
+$(SIM_TOP): $(FILELIST)
+	@echo "🔨 Compiling simulation..."
+	@mkdir -p $(SIM_DIR) $(WAVE_DIR)
+	@if [ ! -s $(FILELIST) ]; then \
+		echo "❌ File list is empty: $(FILELIST)"; \
+		echo "   Add your RTL files and run 'make update-config'"; \
+		exit 1; \
+	fi
+	@if ! grep -q "^/" $(FILELIST); then \
+		echo "❌ No source files found in $(FILELIST)"; \
+		echo "   Add RTL files to $(RTL_DIR)/ and testbenches to $(TB_DIR)/"; \
+		exit 1; \
+	fi
+	@$(IVERILOG) -g2005 -f $(FILELIST) -s $(TESTBENCH) -o $(SIM_TOP)
+	@echo "✅ Compilation successful!"
+
+.PHONY: waves
+waves:
+	@echo "👁️  Opening waveform viewer..."
+ifndef GTKWAVE
+	@echo "❌ GTKWave not available. Install with: sudo apt install gtkwave"
+	@exit 1
+endif
+	@if [ -f "$(WAVE_FILE)" ]; then \
+		echo "🌊 Opening: $(WAVE_FILE)"; \
+		$(GTKWAVE) $(WAVE_FILE) & \
+	elif [ -f "$(FST_FILE)" ]; then \
+		echo "🌊 Opening: $(FST_FILE)"; \
+		$(GTKWAVE) $(FST_FILE) & \
+	else \
+		echo "❌ No waveform files found"; \
+		echo "   Run 'make sim' first to generate waveforms"; \
+		exit 1; \
+	fi
+
+.PHONY: sim-waves
+sim-waves: sim waves
+
+# ================================================
+# OPENLANE ASIC FLOW - SKYWATER 130nm
+# ================================================
+
+.PHONY: prepare-design-sky130
+prepare-design-sky130:
+	@echo "📁 Preparing OpenLane design directory for SkyWater 130nm..."
+	@mkdir -p $(DESIGN_DIR)
+	@if [ ! -f "$(SKY130_CONFIG)" ]; then \
+		echo "❌ SkyWater config not found: $(SKY130_CONFIG)"; \
+		echo "   Run 'make update-config' first"; \
+		exit 1; \
+	fi
+	@cp $(SKY130_CONFIG) $(DESIGN_DIR)/config.json
+	@echo "✅ Design directory prepared: $(DESIGN_DIR)"
+ 
+.PHONY: asic-flow-sky130
+asic-flow-sky130: check-openlane prepare-design-sky130
+	@echo "🚀 Running complete ASIC flow for SkyWater 130nm..."
+	@echo "   This may take 10-30 minutes depending on design complexity..."
+	@mkdir -p $(RUNS_DIR)/sky130
+	@docker run --rm \
+	-v $(PWD):$(PWD) -w $(PWD) \
+	-v $(OPENLANE_ROOT)/../pdks:/root/.volare \
+	efabless/openlane:latest bash -c " \
+	flow.tcl -design $(PWD)/$(DESIGN_DIR) \
+		-run_path $(PWD)/$(RUNS_DIR)/sky130 \
+		-tag $(PROJECT)_sky130_$$(date +%Y%m%d_%H%M%S)"
+	@$(MAKE) copy-results-sky130
+	@echo "🎉 SkyWater 130nm ASIC flow complete!"
+	@echo "📁 Results in: $(RUNS_DIR)/sky130/"
+	@echo "💎 GDSII: $(LAYOUT_DIR)/$(TOP_MODULE)_sky130.gds"
+	@echo "👁️  View: make view-gds-sky130"
+
+# ================================================
+# OPENLANE ASIC FLOW - GLOBALFOUNDRIES 180nm
+# ================================================
+
+.PHONY: prepare-design-gf180
+prepare-design-gf180:
+	@echo "📁 Preparing OpenLane design directory for GlobalFoundries 180nm..."
+	@mkdir -p $(DESIGN_DIR)
+	@if [ ! -f "$(GF180_CONFIG)" ]; then \
+		echo "❌ GlobalFoundries config not found: $(GF180_CONFIG)"; \
+		echo "   Ensure PDK is installed and config exists"; \
+		exit 1; \
+	fi
+	@cp $(GF180_CONFIG) $(DESIGN_DIR)/config.json
+	@echo "✅ Design directory prepared: $(DESIGN_DIR)"
+
+.PHONY: asic-flow-gf180
+asic-flow-gf180: check-openlane prepare-design-gf180
+	@echo "🚀 Running complete ASIC flow for GlobalFoundries 180nm..."
+	@echo "   This may take 15-45 minutes depending on design complexity..."
+	@mkdir -p $(RUNS_DIR)/gf180
+	@docker run --rm \
+	-v $(PWD):$(PWD) -w $(PWD) \
+	-v $(OPENLANE_ROOT)/../pdks:/root/.volare \
+	efabless/openlane:latest bash -c " \
+	flow.tcl -design $(PWD)/$(DESIGN_DIR) \
+		-run_path $(PWD)/$(RUNS_DIR)/gf180 \
+		-tag $(PROJECT)_gf180_$$(date +%Y%m%d_%H%M%S)"
+	@$(MAKE) copy-results-gf180
+	@echo "🎉 GlobalFoundries 180nm ASIC flow complete!"
+	@echo "📁 Results in: $(RUNS_DIR)/gf180/"
+	@echo "💎 GDSII: $(LAYOUT_DIR)/$(TOP_MODULE)_gf180.gds"
+	@echo "👁️  View: make view-gds-gf180"
+
+# ================================================
+# RESULTS MANAGEMENT
+# ================================================
+
+.PHONY: copy-results-sky130
+copy-results-sky130:
+	@echo "📋 Copying SkyWater results to organized directories..."
+	@mkdir -p $(LAYOUT_DIR) $(REPORTS_DIR)/sky130
+	@if [ -d "$(RUNS_DIR)/sky130" ]; then \
+		find $(RUNS_DIR)/sky130 -name "*.gds" -exec cp {} $(LAYOUT_DIR)/$(TOP_MODULE)_sky130.gds \; 2>/dev/null || true; \
+		find $(RUNS_DIR)/sky130 -name "*.rpt" -exec cp {} $(REPORTS_DIR)/sky130/ \; 2>/dev/null || true; \
+		find $(RUNS_DIR)/sky130 -name "*.log" -exec cp {} $(LOG_DIR)/ \; 2>/dev/null || true; \
+		echo "✅ SkyWater results copied"; \
+	fi
+
+.PHONY: copy-results-gf180
+copy-results-gf180:
+	@echo "📋 Copying GlobalFoundries results to organized directories..."
+	@mkdir -p $(LAYOUT_DIR) $(REPORTS_DIR)/gf180
+	@if [ -d "$(RUNS_DIR)/gf180" ]; then \
+		find $(RUNS_DIR)/gf180 -name "*.gds" -exec cp {} $(LAYOUT_DIR)/$(TOP_MODULE)_gf180.gds \; 2>/dev/null || true; \
+		find $(RUNS_DIR)/gf180 -name "*.rpt" -exec cp {} $(REPORTS_DIR)/gf180/ \; 2>/dev/null || true; \
+		find $(RUNS_DIR)/gf180 -name "*.log" -exec cp {} $(LOG_DIR)/ \; 2>/dev/null || true; \
+		echo "✅ GlobalFoundries results copied"; \
+	fi
+
+# ================================================
+# ANALYSIS AND COMPARISON
+# ================================================
+
+.PHONY: timing-sky130
+timing-sky130:
+	@echo "⏰ SkyWater 130nm Timing Analysis"
+	@echo "=================================="
+	@find $(RUNS_DIR)/sky130 -name "*timing*" -o -name "*sta*" 2>/dev/null | head -5 | while read file; do \
+		echo "📊 $$file:"; \
+		tail -20 "$$file" 2>/dev/null | grep -E "(slack|frequency|period)" || echo "   No timing summary found"; \
+	done || echo "No timing reports found. Run 'make asic-flow-sky130' first."
+
+.PHONY: timing-gf180
+timing-gf180:
+	@echo "⏰ GlobalFoundries 180nm Timing Analysis"
+	@echo "========================================"
+	@find $(RUNS_DIR)/gf180 -name "*timing*" -o -name "*sta*" 2>/dev/null | head -5 | while read file; do \
+		echo "📊 $$file:"; \
+		tail -20 "$$file" 2>/dev/null | grep -E "(slack|frequency|period)" || echo "   No timing summary found"; \
+	done || echo "No timing reports found. Run 'make asic-flow-gf180' first."
+
+.PHONY: area-report
+area-report:
+	@echo "📐 Area Utilization Report"
+	@echo "=========================="
+	@echo "🔹 SkyWater 130nm:"
+	@find $(RUNS_DIR)/sky130 -name "*area*" 2>/dev/null | head -3 | while read file; do \
+		echo "📊 $$file:"; \
+		grep -E "(area|utilization|density)" "$$file" 2>/dev/null || echo "   No area data found"; \
+	done || echo "   No area reports found"
+	@echo
+	@echo "🔹 GlobalFoundries 180nm:"
+	@find $(RUNS_DIR)/gf180 -name "*area*" 2>/dev/null | head -3 | while read file; do \
+		echo "📊 $$file:"; \
+		grep -E "(area|utilization|density)" "$$file" 2>/dev/null || echo "   No area data found"; \
+	done || echo "   No area reports found"
+
+.PHONY: power-report
+power-report:
+	@echo "⚡ Power Analysis Report"
+	@echo "======================="
+	@echo "🔹 SkyWater 130nm:"
+	@find $(RUNS_DIR)/sky130 -name "*power*" 2>/dev/null | head -3 | while read file; do \
+		echo "📊 $$file:"; \
+		grep -E "(power|current|voltage)" "$$file" 2>/dev/null || echo "   No power data found"; \
+	done || echo "   No power reports found"
+	@echo
+	@echo "🔹 GlobalFoundries 180nm:"
+	@find $(RUNS_DIR)/gf180 -name "*power*" 2>/dev/null | head -3 | while read file; do \
+		echo "📊 $$file:"; \
+		grep -E "(power|current|voltage)" "$$file" 2>/dev/null || echo "   No power data found"; \
+	done || echo "   No power reports found"
+
+.PHONY: compare-pdks
+compare-pdks:
+	@echo "⚖️  PDK Comparison Report"
+	@echo "========================"
+	@echo "📊 Comparing SkyWater 130nm vs GlobalFoundries 180nm"
+	@echo
+	@echo "🏗️  Implementation Status:"
+	@if [ -d "$(RUNS_DIR)/sky130" ]; then echo "   ✅ SkyWater 130nm - Complete"; else echo "   ❌ SkyWater 130nm - Not run"; fi
+	@if [ -d "$(RUNS_DIR)/gf180" ]; then echo "   ✅ GlobalFoundries 180nm - Complete"; else echo "   ❌ GlobalFoundries 180nm - Not run"; fi
+	@echo
+	@echo "💎 GDSII Files:"
+	@if [ -f "$(LAYOUT_DIR)/$(TOP_MODULE)_sky130.gds" ]; then \
+		echo "   ✅ $(LAYOUT_DIR)/$(TOP_MODULE)_sky130.gds ($$(du -h $(LAYOUT_DIR)/$(TOP_MODULE)_sky130.gds | cut -f1))"; \
+	else \
+		echo "   ❌ SkyWater GDSII not found"; \
+	fi
+	@if [ -f "$(LAYOUT_DIR)/$(TOP_MODULE)_gf180.gds" ]; then \
+		echo "   ✅ $(LAYOUT_DIR)/$(TOP_MODULE)_gf180.gds ($$(du -h $(LAYOUT_DIR)/$(TOP_MODULE)_gf180.gds | cut -f1))"; \
+	else \
+		echo "   ❌ GlobalFoundries GDSII not found"; \
+	fi
+	@echo
+	@echo "📈 Quick Comparison:"
+	@echo "   Run individual reports for detailed analysis:"
+	@echo "   • make timing-sky130 timing-gf180"
+	@echo "   • make area-report"
+	@echo "   • make power-report"
+
+# ================================================
+# LAYOUT VIEWING
+# ================================================
+
+.PHONY: view-gds-sky130
+view-gds-sky130:
+	@echo "👁️  Opening SkyWater 130nm GDSII in KLayout..."
+ifndef KLAYOUT
+	@echo "❌ KLayout not found. Install with: sudo apt install klayout"
+	@exit 1
+endif
+	@if [ -f "$(LAYOUT_DIR)/$(TOP_MODULE)_sky130.gds" ]; then \
+		echo "💎 Opening: $(LAYOUT_DIR)/$(TOP_MODULE)_sky130.gds"; \
+		$(KLAYOUT) $(LAYOUT_DIR)/$(TOP_MODULE)_sky130.gds & \
+	else \
+		echo "❌ SkyWater GDSII not found. Run 'make asic-flow-sky130' first."; \
+		exit 1; \
+	fi
+
+.PHONY: view-gds-gf180
+view-gds-gf180:
+	@echo "👁️  Opening GlobalFoundries 180nm GDSII in KLayout..."
+ifndef KLAYOUT
+	@echo "❌ KLayout not found. Install with: sudo apt install klayout"
+	@exit 1
+endif
+	@if [ -f "$(LAYOUT_DIR)/$(TOP_MODULE)_gf180.gds" ]; then \
+		echo "💎 Opening: $(LAYOUT_DIR)/$(TOP_MODULE)_gf180.gds"; \
+		$(KLAYOUT) $(LAYOUT_DIR)/$(TOP_MODULE)_gf180.gds & \
+	else \
+		echo "❌ GlobalFoundries GDSII not found. Run 'make asic-flow-gf180' first."; \
+		exit 1; \
+	fi
+
+.PHONY: view-magic
+view-magic:
+	@echo "🪄 Opening layout in Magic..."
+ifdef MAGIC
+	@if [ -f "$(LAYOUT_DIR)/$(TOP_MODULE)_sky130.mag" ]; then \
+		echo "✨ Opening SkyWater layout in Magic..."; \
+		cd $(LAYOUT_DIR) && $(MAGIC) $(TOP_MODULE)_sky130.mag & \
+	else \
+		echo "ℹ️  Magic layout files not found in $(LAYOUT_DIR)/"; \
+		echo "   Magic files are generated during detailed OpenLane flow"; \
+	fi
+else
+	@echo "❌ Magic not found. Install with: sudo apt install magic"
+endif
+
+# ================================================
+# STATUS AND INFORMATION
+# ================================================
+
+.PHONY: status
+status:
+	@echo "📊 $(PROJECT) Project Status"
+	@echo "============================"
+	@echo "🏗️  Project: $(PROJECT)"
+	@echo "🎯 Top module: $(TOP_MODULE)"
+	@echo "🧪 Testbench: $(TESTBENCH)"
+	@echo "📁 OpenLane: $(OPENLANE_ROOT)"
+	@echo
+	@echo "📄 Source Files:"
+	@find $(RTL_DIR) -name "*.v" -o -name "*.sv" 2>/dev/null | wc -l | awk '{print "   RTL files: " $1}'
+	@find $(TB_DIR) -name "*_tb.v" -o -name "tb_*.v" 2>/dev/null | wc -l | awk '{print "   Testbenches: " $1}'
+	@echo
+	@echo "⚙️  Configuration:"
+	@if [ -f "$(FILELIST)" ]; then echo "   ✅ $(FILELIST) ($$(grep -c '^/' $(FILELIST) 2>/dev/null || echo 0) files)"; else echo "   ❌ $(FILELIST) missing"; fi
+	@if [ -f "$(SKY130_CONFIG)" ]; then echo "   ✅ $(SKY130_CONFIG)"; else echo "   ❌ $(SKY130_CONFIG) missing"; fi
+	@if [ -f "$(GF180_CONFIG)" ]; then echo "   ✅ $(GF180_CONFIG)"; else echo "   ❌ $(GF180_CONFIG) missing"; fi
+	@echo
+	@echo "🏃 Implementation Status:"
+	@if [ -d "$(RUNS_DIR)/sky130" ]; then echo "   ✅ SkyWater 130nm runs exist"; else echo "   ❌ No SkyWater runs"; fi
+	@if [ -d "$(RUNS_DIR)/gf180" ]; then echo "   ✅ GlobalFoundries 180nm runs exist"; else echo "   ❌ No GlobalFoundries runs"; fi
+	@echo
+	@echo "💎 Final Outputs:"
+	@if [ -f "$(LAYOUT_DIR)/$(TOP_MODULE)_sky130.gds" ]; then echo "   ✅ $(LAYOUT_DIR)/$(TOP_MODULE)_sky130.gds"; else echo "   ❌ No SkyWater GDSII"; fi
+	@if [ -f "$(LAYOUT_DIR)/$(TOP_MODULE)_gf180.gds" ]; then echo "   ✅ $(LAYOUT_DIR)/$(TOP_MODULE)_gf180.gds"; else echo "   ❌ No GlobalFoundries GDSII"; fi
+
+.PHONY: list-runs
+list-runs:
+	@echo "📋 OpenLane Run History"
+	@echo "======================"
+	@echo "🔹 SkyWater 130nm Runs:"
+	@if [ -d "$(RUNS_DIR)/sky130" ]; then \
+		ls -la $(RUNS_DIR)/sky130/ | tail -n +2 | while read line; do echo "   $$line"; done; \
+	else \
+		echo "   No SkyWater runs found"; \
+	fi
+	@echo
+	@echo "🔹 GlobalFoundries 180nm Runs:"
+	@if [ -d "$(RUNS_DIR)/gf180" ]; then \
+		ls -la $(RUNS_DIR)/gf180/ | tail -n +2 | while read line; do echo "   $$line"; done; \
+	else \
+		echo "   No GlobalFoundries runs found"; \
+	fi
+
+# ================================================
+# CLEANUP
+# ================================================
+
+.PHONY: clean
+clean:
+	@echo "🧹 Cleaning simulation files..."
+	@rm -f $(SIM_DIR)/*.vvp
+	@rm -f $(WAVE_DIR)/*.vcd $(WAVE_DIR)/*.fst $(WAVE_DIR)/*.lxt*
+	@rm -f *.log *.tmp
+	@echo "✅ Simulation cleanup complete!"
+	
+.PHONY: clean-runs
+clean-runs:
+	@echo "🧹 Cleaning OpenLane runs..."
+	@echo "⚠️  This will delete ALL OpenLane run data!"
+	@printf "Are you sure? [y/N]: "; \
+	read REPLY; \
+	case "$$REPLY" in \
+		[Yy]|[Yy][Ee][Ss]) \
+			sudo chown -R $$USER:$$USER $(RUNS_DIR)/ 2>/dev/null || true; \
+			rm -rf $(RUNS_DIR)/sky130/* $(RUNS_DIR)/gf180/*; \
+			rm -f $(LAYOUT_DIR)/*.gds; \
+			rm -rf $(REPORTS_DIR)/*; \
+			echo "✅ OpenLane runs cleaned!" ;; \
+		*) \
+			echo "❌ Cleanup cancelled." ;; \
+	esac
+
+.PHONY: clean-all
+clean-all: clean clean-runs
+	@echo "🧹 Deep cleanup complete!"
+
+# ================================================
+# PHONY DECLARATIONS
+# ================================================
+
+.PHONY: all sim sim-waves  asic-flow-sky130 asic-flow-gf180
+.PHONY: timing-sky130 timing-gf180 area-report power-report compare-pdks
+.PHONY: view-gds-sky130 view-gds-gf180 view-magic waves clean clean-all
+.PHONY: check-tools check-openlane verify-config update-config show-config
+.PHONY: prepare-design-sky130 prepare-design-gf180
+.PHONY: copy-results-sky130 copy-results-gf180 status list-runs help
