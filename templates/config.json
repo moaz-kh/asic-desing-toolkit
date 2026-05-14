@@ -1,0 +1,10 @@
+{
+    "PDK": "sky130A",
+    "DESIGN_NAME": "__DESIGN_NAME__",
+    "VERILOG_FILES": ["rtl/*.v", "rtl/lib/*.v"],
+    "CLOCK_PORT": "clk",
+    "CLOCK_PERIOD": 10.0,
+    "FP_SIZING": "absolute",
+    "DIE_AREA": "0 0 200 200",
+    "FP_CORE_UTIL": 50
+}

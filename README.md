@@ -1,190 +1,125 @@
 # ASIC Design Toolkit
 
-**Complete open-source ASIC design workflow from RTL to GDSII using OpenLane**
+Drop in your RTL, simulate it, and synthesize it to GDSII - with one setup
+script if you don't have the tools yet.
 
+This toolkit is the friendly UX layer on top of the open-source ASIC flow. It
+wraps [OpenLane 2](https://github.com/efabless/openlane2) (Yosys + OpenROAD +
+Magic + KLayout) and the Sky130 PDK so a digital designer can go from Verilog
+to layout with `make` commands they already know.
 
-## 🚀 What This Toolkit Provides
+Sister project: [fpga-design-toolkit](https://github.com/moaz-kh/fpga-design-toolkit).
 
-- **One-command ASIC tool installation** (OpenLane + PDKs + simulation tools)
-- **Professional project templates** with multi-PDK support
-- **Complete RTL-to-GDSII workflow** using industry-standard open-source tools
-- **Ready-to-run examples** with comprehensive testbenches
-- **Multi-PDK comparison** (SkyWater 130nm vs GlobalFoundries 180nm)
-- **Professional Makefile** with 30+ automated targets
+## The 5-step journey
 
-## 🎯 Perfect For
+```
+Step 1 - Clone the toolkit
+Step 2 - Run setup            (only if you don't have the tools yet)
+Step 3 - Drop in your RTL
+Step 4 - make sim             see waveforms
+Step 5 - make synth / gds     get a netlist / GDSII
+```
 
-- **ASIC designers** transitioning from FPGAs to silicon
-- **Students** learning chip design and tapeout flows
-- **Researchers** needing reproducible ASIC workflows
-- **Startups** requiring cost-effective silicon prototyping
-- **Anyone** wanting to design custom chips without expensive EDA licenses
+## Step 1 - Clone
 
-## ⚡ Quick Start
-
-### 1. Install ASIC Tools (5 minutes)
 ```bash
-git clone https://github.com/moaz-kh/asic-design-toolkit.git
-cd asic-design-toolkit
-chmod +x install_asic_tools.sh
+git clone https://github.com/moaz-kh/asic-desing-toolkit.git
+cd asic-desing-toolkit
+```
+
+## Step 2 - Install the tools
+
+```bash
 ./install_asic_tools.sh
 ```
 
-**What gets installed:**
-- OpenLane (RTL-to-GDSII flow)
-- SkyWater 130nm PDK (production-ready, 600+ successful tapeouts)
-- Optional: GlobalFoundries 180nm PDK (automotive/industrial)
-- Icarus Verilog + GTKWave (simulation)
-- KLayout + Magic (layout viewing)
+You get an interactive menu with two real choices:
 
-### 2. Create Your First ASIC Project (2 minutes)
-```bash
-chmod +x initiate_asic_proj.sh
-./initiate_asic_proj.sh
-```
+| Choice | Installs | Needs Docker | Size / time |
+|--------|----------|--------------|-------------|
+| **1) Simulation only** | Icarus Verilog + GTKWave + Verilator | No | ~50MB, 2 min |
+| **2) Full ASIC flow** | Simulation + OpenLane 2 + Sky130 PDK | Yes | ~8GB, 20-30 min |
 
-Interactive setup creates:
-- Complete directory structure
-- Multi-PDK configurations
-- Example 8-bit counter with testbench
-- Professional Makefile with 30+ targets
-
-### 3. Run Complete ASIC Flow (10-30 minutes)
-```bash
-cd your_project_name
-
-# Test simulation first
-make sim-waves
-
-# Run complete RTL-to-GDSII flow
-make asic-flow-sky130      # SkyWater 130nm
-make asic-flow-gf180       # GlobalFoundries 180nm (optional)
-
-# View your chip layout
-make view-gds-sky130
-```
-
-## 🛠️ Complete Workflow
-
-```mermaid
-graph LR
-    A[Verilog RTL] --> B[Simulation]
-    B --> C[Synthesis]
-    C --> D[Floorplan]
-    D --> E[Placement]
-    E --> F[Routing]
-    F --> G[GDSII Layout]
-    G --> H[Fabrication Ready]
-```
-
-## 📁 Generated Project Structure
-
-```
-your_project/
-├── sources/rtl/           # Your Verilog designs
-├── sources/tb/            # Testbenches
-├── config/               # Multi-PDK configurations
-│   ├── sky130.json       # SkyWater 130nm settings
-│   └── gf180.json        # GlobalFoundries 180nm settings
-├── sim/waves/            # Simulation waveforms
-├── runs/                 # OpenLane outputs
-│   ├── sky130/          # SkyWater results
-│   └── gf180/           # GlobalFoundries results
-├── layout/              # Final GDSII files
-└── Makefile             # 30+ automated targets
-```
-
-## 🎖️ Key Features
-
-### Multi-PDK Support
-- **SkyWater 130nm**: 1.8V-5V, proven with 600+ tapeouts, $150-300 via Tiny Tapeout
-- **GlobalFoundries 180nm**: Up to 10V, automotive-grade, production-ready
-
-### Professional Automation
-```bash
-make help                 # Show all 30+ available targets
-make check-all           # Verify complete setup
-make asic-flow-sky130    # Complete RTL-to-GDSII flow
-make compare-pdks        # Compare implementations
-make timing-sky130       # Timing analysis
-make area-report         # Area utilization
-make view-gds-sky130     # Open layout viewer
-```
-
-### Example Design Included
-- 8-bit counter with enable, clear, overflow detection
-- Comprehensive testbench with 1000+ test cases
-- Ready-to-manufacture with proper timing constraints
-- Demonstrates professional ASIC design practices
-
-## 🔧 Requirements
-
-- **OS**: Ubuntu 22.04+ (native or WSL2)
-- **Memory**: 8GB+ RAM 
-- **Storage**: 50GB+ available space
-- **Tools**: Automatically installed by script
-
-## 📊 Proven Results
-
-- **600+ successful tapeouts** using SkyWater 130nm PDK
-- **Production-ready flows** for educational and commercial use
-- **Complete silicon verification** from simulation to fabricated chips
-- **Industry-standard tools** (OpenLane, OpenROAD, Yosys, Magic)
-
-## 🎓 Learning Path
-
-1. **Start here**: Run example counter design
-2. **Simulation**: Learn Verilog testbench development
-3. **Synthesis**: Understand RTL-to-netlist conversion
-4. **Physical Design**: Learn placement and routing
-5. **Verification**: Master DRC/LVS checking
-6. **Tapeout**: Submit to Tiny Tapeout or shuttle programs
-
-## 🆚 Why Open-Source ASIC?
-
-| Commercial EDA | Open-Source (This Toolkit) |
-|----------------|---------------------------|
-| $100K-500K/year | **Free** |
-| Black box tools | **Full transparency** |
-| Vendor lock-in | **Tool independence** |
-| Complex setup | **One-command install** |
-| Limited access | **Available to everyone** |
-
-## 🌟 Success Stories
-
-This toolkit enables the same flows used for:
-- Google's **Open MPW shuttle program** (300+ designs)
-- **Tiny Tapeout** educational program (500+ student designs)
-- **Commercial ASIC prototypes** for startups
-- **Research chips** at universities worldwide
-
-## 🤝 Contributing
-
-We welcome contributions! Please see:
-- Add new PDK support
-- Improve example designs  
-- Enhance automation scripts
-- Update documentation
-
-## 📚 Additional Resources
-
-- [OpenLane Documentation](https://openlane.readthedocs.io/)
-- [SkyWater PDK](https://skywater-pdk.readthedocs.io/)
-- [Tiny Tapeout](https://tinytapeout.com/) - $150 chip fabrication
-- [Zero to ASIC Course](https://www.zerotoasiccourse.com/)
-
-## 🏷️ Keywords
-
-`ASIC design` `RTL-to-GDSII` `OpenLane` `SkyWater 130nm` `GlobalFoundries 180nm` `chip design` `tapeout` `silicon` `open source EDA` `digital design` `Verilog` `GDSII` `place and route` `synthesis` `verification` `Tiny Tapeout`
-
----
-
-**Ready to design your first chip?** ⚡ 
+Non-interactive flags for CI / power users:
 
 ```bash
-git clone https://github.com/moaz-kh/asic-design-toolkit.git
-cd asic-design-toolkit
-./install_asic_tools.sh
+./install_asic_tools.sh --mode=sim     # simulation tools only
+./install_asic_tools.sh --mode=full    # sim + OpenLane 2 + Sky130
+./install_asic_tools.sh --cleanup      # remove everything it installed
+./install_asic_tools.sh --reinstall    # cleanup then fresh install
 ```
 
-*From idea to silicon in minutes, not months.* 🚀
+The Sky130 PDK is installed with [volare](https://github.com/efabless/volare)
+into `~/.asic-toolkit/pdks` and write-protected so a stray command can't
+corrupt it.
+
+## Step 3 - Create a project
+
+```bash
+./initiate_proj.sh
+```
+
+Two questions - project name, and what you're targeting:
+
+1. **Simulation only** - just simulate RTL
+2. **Sky130 (130nm)** - synthesize to GDSII (Tiny Tapeout compatible)
+
+It generates a ready-to-run project. Put your Verilog in `rtl/` (a working
+counter stub is there to replace), edit the testbench in `tb/`, and go.
+
+```
+my_project/
+├── rtl/              your Verilog goes here
+│   ├── my_project.v  example design stub - replace it
+│   └── lib/          standard modules, ready to use:
+│       ├── synchronizer.v   2-flop CDC synchronizer
+│       ├── edge_detector.v  rising/falling edge pulses
+│       ├── reset_sync.v     async-assert / sync-deassert reset
+│       └── async_fifo.v     parameterized async FIFO
+├── tb/               testbenches (self-checking stub included)
+├── sim/waves/        VCD output + GTKWave session files
+├── config/           OpenLane 2 config  (Sky130 projects only)
+└── Makefile
+```
+
+## Steps 4 & 5 - Simulate and synthesize
+
+From inside your project:
+
+```bash
+make sim          # compile and run simulation
+make waves        # open GTKWave
+make sim-waves    # simulate then open waveforms (most common)
+
+make synth        # synthesize RTL -> netlist        (Sky130 projects)
+make gds          # full RTL -> GDSII flow           (Sky130 projects)
+make view-gds     # open the layout in KLayout
+```
+
+`make help` lists every command. Step-by-step flow targets (`floorplan`,
+`place`, `route`) and result viewers (`timing`, `area`) are there too.
+
+## Requirements
+
+- Linux (native or WSL2), Ubuntu 22.04+ recommended
+- 16GB+ RAM recommended for the full flow (place & route is memory-hungry)
+- 50GB+ free disk for the full flow
+
+## How this relates to the ecosystem
+
+This toolkit does **not** reimplement the flow - it wraps mature projects:
+
+- **OpenLane 2 / LibreLane** - the RTL-to-GDSII flow engine
+- **OpenROAD** - the place & route engine inside OpenLane
+- **volare** - the PDK version manager
+- **Sky130 PDK** - the open-source 130nm process from SkyWater/Google
+
+The toolkit's value is the UX: a friendly installer, a standalone IP scaffold
+(not coupled to a shuttle harness), standard RTL modules ready to use, and a
+plain `make` interface.
+
+## Resources
+
+- [OpenLane 2 docs](https://openlane2.readthedocs.io/)
+- [Sky130 PDK docs](https://skywater-pdk.readthedocs.io/)
+- [Tiny Tapeout](https://tinytapeout.com/)
